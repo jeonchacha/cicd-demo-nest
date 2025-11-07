@@ -24,25 +24,42 @@ jobs:
         run: |
           echo '${{ secrets.ENV }}' > env
           
+      - name: env 잘 만들었나?
+        run: |
+          ls -a
+          cat .env
+
       - name: 테스트 코드 실행
         run: npm run test
 
+      - name: 빌드
+        run: npm run build
+
+      - name: 압축
+        run: tar -czvf project.tar.gz dist .env package.json package-lock.json
+
+      - name: SCP로 EC2에 빌드된 파일 전송
+        uses: appleboy/scp-action@v1.0.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: project.tar.gz
+          target: cd /home/ubuntu/cicd-demo-nest/tobe
+
       - name: SSH로 EC2에 접속하기
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          ENV: ${{ secrets.ENV }}
         with:
          host: ${{ secrets.EC2_HOST }}
          username: ${{ secrets.EC2_USERNAME }}
          key: ${{ secrets.EC2_PRIVATE_KEY }}
-         envs: ENV
          script_stop: true # 아래 script 중 실패하는 명령어 하나라도 있으면 실패로 처리
          script: |
-           cd /home/ubuntu/cicd-demo-nest
-           rm -rf .env
-           git pull origin main
-           echo "$ENV" > .env
+           rm -rf /home/ubuntu/cicd-demo-nest/current
+           mkdir /home/ubuntu/cicd-demo-nest/current
+           mv /home/ubuntu/cicd-demo-nest/tobe/project.tar.gz /home/ubuntu/cicd-demo-nest/current/project.tar.gz
+           cd /home/ubuntu/cicd-demo-nest/current
+           tar -xvf project.tar.gz
            npm i
-           npm run build
            pm2 kill
            pm2 start dist/main.js --name "backend-server"
