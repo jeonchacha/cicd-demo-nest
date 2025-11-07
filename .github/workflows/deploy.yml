@@ -22,7 +22,7 @@ jobs:
       
       - name: .env 파일 만들기
         run: |
-          echo '${{ secrets.ENV }}' > env
+          echo '${{ secrets.ENV }}' > .env
           
       - name: env 잘 만들었나?
         run: |
